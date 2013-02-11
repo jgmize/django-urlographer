@@ -20,13 +20,13 @@ from setuptools import setup
 
 setup(
     name='django-urlographer',
-    version='0.4',
+    version='0.4.1',
     author='Josh Mize',
     author_email='jmize@consumeraffairs.com',
     description='URL mapper for django',
     license='Apache License 2.0',
     url='https://github.com/ConsumerAffairs/django-urlographer',
-    packages=['urlographer'],
+    packages=['urlographer', 'urlographer.migrations'],
     install_requires=['Django>=1.3', 'django-extensions>=0.9'],
     long_description='A URL mapper for the django web framework',
     classifiers=[
