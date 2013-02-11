@@ -33,7 +33,7 @@ setup(
     url='https://github.com/ConsumerAffairs/django-urlographer',
     packages=['urlographer'],
     install_requires=['Django>=1.3', 'django-extensions>=0.9'],
-    long_description=read('README.md'),
+    long_description=read('README'),
     classifiers=[
         'Development Status :: 3 - Alpha',
         'Environment :: Web Environment',
