@@ -18,14 +18,9 @@ import os
 from setuptools import setup
 
 
-def read(fname):
-    with open(os.path.join(os.path.dirname(__file__), fname)) as f:
-        return f.read()
-
-
 setup(
     name='django-urlographer',
-    version='0.1',
+    version='0.4',
     author='Josh Mize',
     author_email='jmize@consumeraffairs.com',
     description='URL mapper for django',
@@ -33,7 +28,7 @@ setup(
     url='https://github.com/ConsumerAffairs/django-urlographer',
     packages=['urlographer'],
     install_requires=['Django>=1.3', 'django-extensions>=0.9'],
-    long_description=read('README'),
+    long_description='A URL mapper for the django web framework',
     classifiers=[
         'Development Status :: 3 - Alpha',
         'Environment :: Web Environment',

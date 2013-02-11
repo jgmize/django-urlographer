@@ -18,7 +18,7 @@ from django.http import (
     Http404, HttpResponse, HttpResponsePermanentRedirect, HttpResponseRedirect)
 
 from .models import URLMap
-from .utils import canonicalize_path, get_view
+from .utils import canonicalize_path, force_cache_invalidation, get_view
 
 
 def route(request):
@@ -30,7 +30,9 @@ def route(request):
     canonicalized = canonicalize_path(request.path)
     site = get_current_site(request)
     try:
-        url = URLMap.objects.cached_get(site, canonicalized)
+        url = URLMap.objects.cached_get(
+            site, canonicalized,
+            force_cache_invalidation=force_cache_invalidation(request))
     except URLMap.DoesNotExist:
         raise Http404
     if url.status_code == 200:

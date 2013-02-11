@@ -12,12 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from django.contrib.sites.models import Site
+from django.contrib.sites.models import get_current_site, Site
 from django.contrib.admin.sites import AdminSite
+from django.contrib.auth.models import AnonymousUser
 from django.core.urlresolvers import ResolverMatch
 from django.http import Http404
 from django.test import TestCase
 from django.test.client import RequestFactory
+from django_any.contrib import any_user
+from override_settings import override_settings
 import mox
 
 from urlographer import models, utils, views
@@ -115,6 +118,21 @@ class URLMapTest(TestCase):
             self.url.path)
         self.mox.VerifyAll()
 
+    def test_cached_get_force_cache_invalidation(self):
+        self.site.save()
+        self.url.site = self.site
+        self.url.status_code = 204
+        self.url.save()
+        self.mox.StubOutWithMock(models.cache, 'get')
+        self.mox.StubOutWithMock(models.cache, 'set')
+        models.cache.set(
+            self.cache_key, self.url, timeout=models.CACHE_TIMEOUT)
+        self.mox.ReplayAll()
+        url = models.URLMap.objects.cached_get(
+            self.site, self.url.path, force_cache_invalidation=True)
+        self.mox.VerifyAll()
+        self.assertEqual(url, self.url)
+
 
 class ContentMapTest(TestCase):
     def test_save_nonexistent_view(self):
@@ -203,6 +221,21 @@ class RouteTest(TestCase):
         response = views.route(self.factory.get('/test'))
         self.assertEqual(response.status_code, 200)
 
+    def test_force_cache_invalidation(self):
+        path = '/test'
+        request = self.factory.get(path)
+        site = get_current_site(request)
+        url_map = models.URLMap(site=site, path=path, status_code=204)
+        self.mox.StubOutWithMock(views, 'force_cache_invalidation') 
+        self.mox.StubOutWithMock(models.URLMapManager, 'cached_get')
+        views.force_cache_invalidation(request).AndReturn(True)
+        models.URLMapManager.cached_get(
+            site, path, force_cache_invalidation=True).AndReturn(
+            url_map)
+        self.mox.ReplayAll()
+        response = views.route(request)
+        self.assertEqual(response.status_code, 204)
+
 # the test below only works if .* is mapped to route
 #    def test_route_trailing_slash_redirect(self):
 #        self.mox.StubOutWithMock(views, 'resolve')
@@ -235,3 +268,48 @@ class CanonicalizePathTest(TestCase):
 
     def test_non_ascii(self):
         self.assertEqual(utils.canonicalize_path(u'/te\xa0\u2013st'), '/test')
+
+
+class ForceCacheInvalidationTest(TestCase):
+    def setUp(self):
+        self.factory = RequestFactory()
+
+    def test_header_not_set(self):
+        self.assertFalse(utils.force_cache_invalidation(self.factory.get('/')))
+
+    @override_settings(INTERNAL_IPS=['10.0.0.1'])
+    def test_remote_anonymous(self):
+        request = self.factory.get('/')
+        request.META.update(
+            {'HTTP_CACHE_CONTROL': 'no-cache',
+             'REMOTE_ADDR': '10.0.0.2'})
+        request.user = AnonymousUser()
+        self.assertFalse(utils.force_cache_invalidation(request))
+
+    @override_settings(INTERNAL_IPS=['10.0.0.1'])
+    def test_internal_ip(self):
+        request = self.factory.get('/')
+        request.META.update(
+            {'HTTP_CACHE_CONTROL': 'no-cache',
+             'REMOTE_ADDR': '10.0.0.1'})
+        request.user = AnonymousUser()
+        self.assertTrue(utils.force_cache_invalidation(request))
+
+    @override_settings(INTERNAL_IPS=['10.0.0.1'])
+    def test_internal_ip_forwarded(self):
+        request = self.factory.get('/')
+        request.META.update(
+            {'HTTP_CACHE_CONTROL': 'no-cache',
+             'HTTP_X_FORWARDED_FOR': '10.0.0.1',
+             'REMOTE_ADDR': '10.0.0.2'})
+        request.user = AnonymousUser()
+        self.assertTrue(utils.force_cache_invalidation(request))
+
+    @override_settings(INTERNAL_IPS=['10.0.0.1'])
+    def test_superuser_external_ip(self):
+        request = self.factory.get('/')
+        request.META.update(
+            {'HTTP_CACHE_CONTROL': 'no-cache',
+             'REMOTE_ADDR': '10.0.0.2'})
+        request.user = any_user(is_superuser=True)
+        self.assertTrue(utils.force_cache_invalidation(request))

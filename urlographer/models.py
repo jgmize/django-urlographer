@@ -38,7 +38,7 @@ class ContentMap(models.Model):
 
 
 class URLMapManager(models.Manager):
-    def cached_get(self, site, path):
+    def cached_get(self, site, path, force_cache_invalidation=False):
         '''
         Use the site and path to construct a temporary URL instance.
         Use that to get the cache key and hexdigest for cache and db queries.
@@ -47,9 +47,10 @@ class URLMapManager(models.Manager):
         url = self.model(site=site, path=path)
         url.set_hexdigest()
         cache_key = url.cache_key()
-        cached = cache.get(cache_key)
-        if cached:
-            return cached
+        if not force_cache_invalidation:
+            cached = cache.get(cache_key)
+            if cached:
+                return cached
         url = self.get(hexdigest=url.hexdigest)
         cache.set(cache_key, url, timeout=CACHE_TIMEOUT)
         return url
