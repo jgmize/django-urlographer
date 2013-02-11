@@ -1,4 +1,20 @@
+# Copyright 2013 Consumers Unified LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 from django.contrib.sites.models import Site
+from django.contrib.admin.sites import AdminSite
+from django.core.urlresolvers import ResolverMatch
 from django.http import Http404
 from django.test import TestCase
 from django.test.client import RequestFactory
@@ -187,6 +203,18 @@ class RouteTest(TestCase):
         response = views.route(self.factory.get('/test'))
         self.assertEqual(response.status_code, 200)
 
+# the test below only works if .* is mapped to route
+#    def test_route_trailing_slash_redirect(self):
+#        self.mox.StubOutWithMock(views, 'resolve')
+#        views.resolve('/admin/').AndReturn(
+#            ResolverMatch(AdminSite().index, (), {}, 'index'))
+#        self.mox.ReplayAll()
+#        response = views.route(self.factory.get('/admin'))
+#        self.mox.VerifyAll()
+#        self.assertEqual(response.status_code, 301)
+#        self.assertEqual(response._headers['location'][1], '/admin/')
+
+
 
 class CanonicalizePathTest(TestCase):
     def test_lower(self):
@@ -202,6 +230,7 @@ class CanonicalizePathTest(TestCase):
             '/this/is/a/test.html')
         self.assertEqual(
             utils.canonicalize_path('../this/./is/./only/../a/./test.html'),
+
             '/this/is/a/test.html')
 
     def test_non_ascii(self):

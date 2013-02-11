@@ -1,4 +1,19 @@
+# Copyright 2013 Consumers Unified LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 from django.contrib.sites.models import get_current_site
+from django.core.urlresolvers import resolve
 from django.http import (
     Http404, HttpResponse, HttpResponsePermanentRedirect, HttpResponseRedirect)
 
@@ -7,6 +22,11 @@ from .utils import canonicalize_path, get_view
 
 
 def route(request):
+#   the code below only works if route is mapped to .*
+#    if not request.path_info.endswith('/'):
+#        with_slash = request.path_info + '/'
+#        if resolve(with_slash)[0] != route:
+#            return HttpResponsePermanentRedirect(with_slash)
     canonicalized = canonicalize_path(request.path)
     site = get_current_site(request)
     try:
