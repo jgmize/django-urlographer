@@ -12,10 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from django.conf import settings
 from django.contrib.sites.models import get_current_site, Site
-from django.contrib.admin.sites import AdminSite
 from django.contrib.auth.models import AnonymousUser
-from django.core.urlresolvers import ResolverMatch
 from django.http import Http404
 from django.test import TestCase
 from django.test.client import RequestFactory
@@ -31,7 +30,7 @@ class URLMapTest(TestCase):
         self.site = Site(domain='example.com')
         self.url = models.URLMap(site=self.site, path='/test_path')
         self.hexdigest = '389661d2e64f9d426ad306abe6e8f957'
-        self.cache_key = models.CACHE_PREFIX + self.hexdigest
+        self.cache_key = settings.URLOGRAPHER_CACHE_PREFIX + self.hexdigest
         self.mox = mox.Mox()
 
     def tearDown(self):
@@ -65,7 +64,8 @@ class URLMapTest(TestCase):
         self.assertFalse(self.url.hexdigest)
         self.mox.StubOutWithMock(models.cache, 'set')
         models.cache.set(
-            self.cache_key, self.url, timeout=models.CACHE_TIMEOUT)
+            self.cache_key, self.url,
+            timeout=settings.URLOGRAPHER_CACHE_TIMEOUT)
         self.mox.ReplayAll()
         self.url.save()
         self.mox.VerifyAll()
@@ -86,6 +86,18 @@ class URLMapTest(TestCase):
             site=self.site, path='/target', status_code=204)
         self.assertRaises(AssertionError, self.url.save)
 
+
+class URLMapManagerTest(TestCase):
+    def setUp(self):
+        self.site = Site(domain='example.com')
+        self.url = models.URLMap(site=self.site, path='/test_path')
+        self.hexdigest = '389661d2e64f9d426ad306abe6e8f957'
+        self.cache_key = settings.URLOGRAPHER_CACHE_PREFIX + self.hexdigest
+        self.mox = mox.Mox()
+
+    def tearDown(self):
+        self.mox.UnsetStubs()
+
     def test_cached_get_cache_hit(self):
         self.mox.StubOutWithMock(models.cache, 'get')
         models.cache.get(self.cache_key).AndReturn(self.url)
@@ -103,7 +115,8 @@ class URLMapTest(TestCase):
         self.mox.StubOutWithMock(models.cache, 'set')
         models.cache.get(self.cache_key)
         models.cache.set(
-            self.cache_key, self.url, timeout=models.CACHE_TIMEOUT)
+            self.cache_key, self.url,
+            timeout=settings.URLOGRAPHER_CACHE_TIMEOUT)
         self.mox.ReplayAll()
         url = models.URLMap.objects.cached_get(self.site, self.url.path)
         self.mox.VerifyAll()
@@ -114,8 +127,8 @@ class URLMapTest(TestCase):
         models.cache.get(self.cache_key)
         self.mox.ReplayAll()
         self.assertRaises(
-            models.URLMap.DoesNotExist, models.URLMap.objects.cached_get, self.site,
-            self.url.path)
+            models.URLMap.DoesNotExist, models.URLMap.objects.cached_get,
+            self.site, self.url.path)
         self.mox.VerifyAll()
 
     def test_cached_get_force_cache_invalidation(self):
@@ -126,12 +139,29 @@ class URLMapTest(TestCase):
         self.mox.StubOutWithMock(models.cache, 'get')
         self.mox.StubOutWithMock(models.cache, 'set')
         models.cache.set(
-            self.cache_key, self.url, timeout=models.CACHE_TIMEOUT)
+            self.cache_key, self.url,
+            timeout=settings.URLOGRAPHER_CACHE_TIMEOUT)
         self.mox.ReplayAll()
         url = models.URLMap.objects.cached_get(
             self.site, self.url.path, force_cache_invalidation=True)
         self.mox.VerifyAll()
         self.assertEqual(url, self.url)
+
+    @override_settings(URLOGRAPHER_INDEX_ALIASES=['index.html'])
+    def test_cached_get_index_alias_cache_hit(self):
+        index_urlmap = models.URLMap(site=self.site, path='/index.html',
+                                     status_code=204)
+        index_urlmap.set_hexdigest()
+        index_key = settings.URLOGRAPHER_CACHE_PREFIX + index_urlmap.hexdigest
+        root_key = (settings.URLOGRAPHER_CACHE_PREFIX +
+                    '617a9471507f0eb608f3858291adb70f')
+        self.mox.StubOutWithMock(models.cache, 'get')
+        models.cache.get(root_key)
+        models.cache.get(index_key).AndReturn(index_urlmap)
+        self.mox.ReplayAll()
+        urlmap = models.URLMap.objects.cached_get(self.site, '/')
+        self.mox.VerifyAll()
+        self.assertEqual(urlmap, index_urlmap)
 
 
 class ContentMapTest(TestCase):
@@ -226,7 +256,7 @@ class RouteTest(TestCase):
         request = self.factory.get(path)
         site = get_current_site(request)
         url_map = models.URLMap(site=site, path=path, status_code=204)
-        self.mox.StubOutWithMock(views, 'force_cache_invalidation') 
+        self.mox.StubOutWithMock(views, 'force_cache_invalidation')
         self.mox.StubOutWithMock(models.URLMapManager, 'cached_get')
         views.force_cache_invalidation(request).AndReturn(True)
         models.URLMapManager.cached_get(
@@ -246,7 +276,6 @@ class RouteTest(TestCase):
 #        self.mox.VerifyAll()
 #        self.assertEqual(response.status_code, 301)
 #        self.assertEqual(response._headers['location'][1], '/admin/')
-
 
 
 class CanonicalizePathTest(TestCase):

@@ -22,10 +22,14 @@ from django_extensions.db.fields.json import JSONField
 
 from .utils import get_view
 
-# for django memcache backend, 0 means use the default_timeout, but for 
+# for django memcache backend, 0 means use the default_timeout, but for
 # django-redis-cache backend, 0 means no expiration
-CACHE_TIMEOUT = getattr(settings, 'URLOGRAPHER_CACHE_TIMEOUT', 0)
-CACHE_PREFIX = getattr(settings, 'URLOGRAPHER_CACHE_PREFIX', 'urlographer:')
+settings.URLOGRAPHER_CACHE_TIMEOUT = getattr(
+    settings, 'URLOGRAPHER_CACHE_TIMEOUT', 0)
+settings.URLOGRAPHER_CACHE_PREFIX = getattr(
+    settings, 'URLOGRAPHER_CACHE_PREFIX', 'urlographer:')
+settings.URLOGRAPHER_INDEX_ALIAS = getattr(
+    settings, 'URLOGRAPHER_INDEX_ALIAS', 'index.html')
 
 
 class ContentMap(models.Model):
@@ -51,8 +55,16 @@ class URLMapManager(models.Manager):
             cached = cache.get(cache_key)
             if cached:
                 return cached
-        url = self.get(hexdigest=url.hexdigest)
-        cache.set(cache_key, url, timeout=CACHE_TIMEOUT)
+        if path.endswith('/') and settings.URLOGRAPHER_INDEX_ALIAS:
+            try:
+                url = self.get(hexdigest=url.hexdigest)
+            except self.model.DoesNotExist:
+                url = self.cached_get(
+                    site, path + settings.URLOGRAPHER_INDEX_ALIAS,
+                    force_cache_invalidation=force_cache_invalidation)
+        else:
+            url = self.get(hexdigest=url.hexdigest)
+        cache.set(cache_key, url, timeout=settings.URLOGRAPHER_CACHE_TIMEOUT)
         return url
 
 
@@ -72,13 +84,13 @@ class URLMap(models.Model):
             return 'https'
         else:
             return 'http'
-        
+
     def __unicode__(self):
         return self.protocol() + '://' + self.site.domain + self.path
 
     def cache_key(self):
         assert self.hexdigest
-        return CACHE_PREFIX + self.hexdigest
+        return settings.URLOGRAPHER_CACHE_PREFIX + self.hexdigest
 
     def set_hexdigest(self):
         self.hexdigest = md5(self.site.domain + self.path).hexdigest()
@@ -94,4 +106,5 @@ class URLMap(models.Model):
             assert self.content_map
         self.set_hexdigest()
         super(URLMap, self).save(*args, **options)
-        cache.set(self.cache_key(), self, timeout=CACHE_TIMEOUT)
+        cache.set(self.cache_key(), self,
+                  timeout=settings.URLOGRAPHER_CACHE_TIMEOUT)
