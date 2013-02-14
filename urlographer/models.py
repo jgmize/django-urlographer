@@ -17,6 +17,8 @@ from hashlib import md5
 from django.conf import settings
 from django.contrib.sites.models import Site
 from django.core.cache import cache
+from django.core.exceptions import ValidationError
+from django.core import validators
 from django.db import models
 from django_extensions.db.fields.json import JSONField
 
@@ -72,7 +74,8 @@ class URLMap(models.Model):
     site = models.ForeignKey(Site)
     path = models.CharField(max_length=2000)
     force_secure = models.BooleanField(default=False)
-    hexdigest = models.CharField(max_length=255, db_index=True, unique=True)
+    hexdigest = models.CharField(max_length=255, db_index=True, blank=True,
+                                 unique=True)
     status_code = models.IntegerField(default=200)
     redirect = models.ForeignKey(
         'self', related_name='redirects', blank=True, null=True)
@@ -99,16 +102,31 @@ class URLMap(models.Model):
         super(URLMap, self).delete(*args, **options)
         cache.delete(self.cache_key())
 
-    def save(self, *args, **options):
-        if self.redirect or self.status_code in (301, 302):
-            assert self.redirect
-            assert self.status_code in (301, 302)
-            assert self.redirect != self
-            assert not self.content_map
-        if self.status_code == 200 or self.content_map:
-            assert self.status_code == 200
-            assert self.content_map
+    def clean_fields(self, *args, **kwargs):
+        try:
+            super(URLMap, self).clean_fields(*args, **kwargs)
+        except ValidationError, e:
+            errors = e.message_dict
+        else:
+            errors = {}
+
+        if self.redirect and self.redirect == self:
+            errors['redirect'] = ['You cannot redirect a url to itself']
+
+        if self.status_code in (301, 302) and not self.redirect:
+            errors['redirect'] = ['Status code requires a redirect']
+
+        elif self.status_code == 200 and not self.content_map:
+            errors['content_map'] = ['Status code requires a content map']
+
+        if errors:
+            raise ValidationError(errors)
+
+    def clean(self):
         self.set_hexdigest()
+
+    def save(self, *args, **options):
+        self.full_clean()
         super(URLMap, self).save(*args, **options)
         cache.set(self.cache_key(), self,
                   timeout=settings.URLOGRAPHER_CACHE_TIMEOUT)
