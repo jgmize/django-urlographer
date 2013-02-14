@@ -15,6 +15,7 @@
 from django.conf import settings
 from django.contrib.sites.models import get_current_site, Site
 from django.contrib.auth.models import AnonymousUser
+from django.db import IntegrityError
 from django.http import Http404
 from django.test import TestCase
 from django.test.client import RequestFactory
@@ -97,6 +98,14 @@ class URLMapTest(TestCase):
         self.url.delete()
         self.mox.VerifyAll()
         self.assertFalse(self.url.id)
+
+    def test_unique_hexdigest(self):
+        self.site.save()
+        self.url.site = self.site
+        self.url.status_code = 204
+        self.url.save()
+        self.url.id = None
+        self.assertRaises(IntegrityError, self.url.save)
         
 
 class URLMapManagerTest(TestCase):

@@ -72,7 +72,7 @@ class URLMap(models.Model):
     site = models.ForeignKey(Site)
     path = models.CharField(max_length=2000)
     force_secure = models.BooleanField(default=False)
-    hexdigest = models.CharField(max_length=255, db_index=True)
+    hexdigest = models.CharField(max_length=255, db_index=True, unique=True)
     status_code = models.IntegerField(default=200)
     redirect = models.ForeignKey(
         'self', related_name='redirects', blank=True, null=True)
