@@ -26,8 +26,12 @@ from .utils import get_view
 
 # for django memcache backend, 0 means use the default_timeout, but for
 # django-redis-cache backend, 0 means no expiration
-CACHE_TIMEOUT = getattr(settings, 'URLOGRAPHER_CACHE_TIMEOUT', 0)
-CACHE_PREFIX = getattr(settings, 'URLOGRAPHER_CACHE_PREFIX', 'urlographer:')
+settings.URLOGRAPHER_CACHE_TIMEOUT = getattr(
+    settings, 'URLOGRAPHER_CACHE_TIMEOUT', 0)
+settings.URLOGRAPHER_CACHE_PREFIX = getattr(
+    settings, 'URLOGRAPHER_CACHE_PREFIX', 'urlographer:')
+settings.URLOGRAPHER_INDEX_ALIAS = getattr(
+    settings, 'URLOGRAPHER_INDEX_ALIAS', 'index.html')
 
 
 class ContentMap(models.Model):
@@ -53,8 +57,16 @@ class URLMapManager(models.Manager):
             cached = cache.get(cache_key)
             if cached:
                 return cached
-        url = self.get(hexdigest=url.hexdigest)
-        cache.set(cache_key, url, timeout=CACHE_TIMEOUT)
+        if path.endswith('/') and settings.URLOGRAPHER_INDEX_ALIAS:
+            try:
+                url = self.get(hexdigest=url.hexdigest)
+            except self.model.DoesNotExist:
+                url = self.cached_get(
+                    site, path + settings.URLOGRAPHER_INDEX_ALIAS,
+                    force_cache_invalidation=force_cache_invalidation)
+        else:
+            url = self.get(hexdigest=url.hexdigest)
+        cache.set(cache_key, url, timeout=settings.URLOGRAPHER_CACHE_TIMEOUT)
         return url
 
 
@@ -62,7 +74,8 @@ class URLMap(models.Model):
     site = models.ForeignKey(Site)
     path = models.CharField(max_length=2000)
     force_secure = models.BooleanField(default=False)
-    hexdigest = models.CharField(max_length=255, db_index=True, blank=True)
+    hexdigest = models.CharField(max_length=255, db_index=True, blank=True,
+                                 unique=True)
     status_code = models.IntegerField(default=200)
     redirect = models.ForeignKey(
         'self', related_name='redirects', blank=True, null=True)
@@ -80,10 +93,14 @@ class URLMap(models.Model):
 
     def cache_key(self):
         assert self.hexdigest
-        return CACHE_PREFIX + self.hexdigest
+        return settings.URLOGRAPHER_CACHE_PREFIX + self.hexdigest
 
     def set_hexdigest(self):
         self.hexdigest = md5(self.site.domain + self.path).hexdigest()
+
+    def delete(self, *args, **options):
+        super(URLMap, self).delete(*args, **options)
+        cache.delete(self.cache_key())
 
     def clean_fields(self, *args, **kwargs):
         try:
@@ -111,4 +128,5 @@ class URLMap(models.Model):
     def save(self, *args, **options):
         self.full_clean()
         super(URLMap, self).save(*args, **options)
-        cache.set(self.cache_key(), self, timeout=CACHE_TIMEOUT)
+        cache.set(self.cache_key(), self,
+                  timeout=settings.URLOGRAPHER_CACHE_TIMEOUT)
