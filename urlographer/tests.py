@@ -188,7 +188,9 @@ class URLMapTest(TestCase):
         self.url.status_code = 204
         self.url.save()
         self.url.id = None
-        self.assertRaises(IntegrityError, self.url.save)
+        self.assertRaisesMessage(
+            ValidationError, self.url.save,
+            {'hexdigest': [u'Url map with this Hexdigest already exists.']})
         
 
 class URLMapManagerTest(TestCase):
