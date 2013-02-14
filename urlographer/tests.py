@@ -58,7 +58,6 @@ class TestCaseTest(TestCase):
             error_message='test message', exc=Exception)
 
     def test_raises_message_return_messages_list(self):
-        self.assertRaises(AttributeError, self.dne)
         self.assertRaisesMessage(
             ValidationError, self.raise_error, ['test message1', 'message2'],
             error_message=['test message1', 'message2'])
