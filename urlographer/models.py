@@ -95,6 +95,10 @@ class URLMap(models.Model):
     def set_hexdigest(self):
         self.hexdigest = md5(self.site.domain + self.path).hexdigest()
 
+    def delete(self, *args, **options):
+        super(URLMap, self).delete(*args, **options)
+        cache.delete(self.cache_key())
+
     def save(self, *args, **options):
         if self.redirect or self.status_code in (301, 302):
             assert self.redirect

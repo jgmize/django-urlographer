@@ -86,6 +86,18 @@ class URLMapTest(TestCase):
             site=self.site, path='/target', status_code=204)
         self.assertRaises(AssertionError, self.url.save)
 
+    def test_delete_deletes_cache(self):
+        self.site.save()
+        self.url.site = self.site
+        self.url.status_code = 204
+        self.url.save()
+        self.mox.StubOutWithMock(models.cache, 'delete')
+        models.cache.delete(self.url.cache_key())
+        self.mox.ReplayAll()
+        self.url.delete()
+        self.mox.VerifyAll()
+        self.assertFalse(self.url.id)
+        
 
 class URLMapManagerTest(TestCase):
     def setUp(self):
