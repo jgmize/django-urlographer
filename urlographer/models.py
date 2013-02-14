@@ -17,12 +17,14 @@ from hashlib import md5
 from django.conf import settings
 from django.contrib.sites.models import Site
 from django.core.cache import cache
+from django.core.exceptions import ValidationError
+from django.core import validators
 from django.db import models
 from django_extensions.db.fields.json import JSONField
 
 from .utils import get_view
 
-# for django memcache backend, 0 means use the default_timeout, but for 
+# for django memcache backend, 0 means use the default_timeout, but for
 # django-redis-cache backend, 0 means no expiration
 CACHE_TIMEOUT = getattr(settings, 'URLOGRAPHER_CACHE_TIMEOUT', 0)
 CACHE_PREFIX = getattr(settings, 'URLOGRAPHER_CACHE_PREFIX', 'urlographer:')
@@ -60,7 +62,7 @@ class URLMap(models.Model):
     site = models.ForeignKey(Site)
     path = models.CharField(max_length=2000)
     force_secure = models.BooleanField(default=False)
-    hexdigest = models.CharField(max_length=255, db_index=True)
+    hexdigest = models.CharField(max_length=255, db_index=True, blank=True)
     status_code = models.IntegerField(default=200)
     redirect = models.ForeignKey(
         'self', related_name='redirects', blank=True, null=True)
@@ -72,7 +74,7 @@ class URLMap(models.Model):
             return 'https'
         else:
             return 'http'
-        
+
     def __unicode__(self):
         return self.protocol() + '://' + self.site.domain + self.path
 
@@ -83,15 +85,30 @@ class URLMap(models.Model):
     def set_hexdigest(self):
         self.hexdigest = md5(self.site.domain + self.path).hexdigest()
 
-    def save(self, *args, **options):
-        if self.redirect or self.status_code in (301, 302):
-            assert self.redirect
-            assert self.status_code in (301, 302)
-            assert self.redirect != self
-            assert not self.content_map
-        if self.status_code == 200 or self.content_map:
-            assert self.status_code == 200
-            assert self.content_map
+    def clean_fields(self, *args, **kwargs):
+        try:
+            super(URLMap, self).clean_fields(*args, **kwargs)
+        except ValidationError, e:
+            errors = e.message_dict
+        else:
+            errors = {}
+
+        if self.redirect and self.redirect == self:
+            errors['redirect'] = ['You cannot redirect a url to itself']
+
+        if self.status_code in (301, 302) and not self.redirect:
+            errors['redirect'] = ['Status code requires a redirect']
+
+        elif self.status_code == 200 and not self.content_map:
+            errors['content_map'] = ['Status code requires a content map']
+
+        if errors:
+            raise ValidationError(errors)
+
+    def clean(self):
         self.set_hexdigest()
+
+    def save(self, *args, **options):
+        self.full_clean()
         super(URLMap, self).save(*args, **options)
         cache.set(self.cache_key(), self, timeout=CACHE_TIMEOUT)
