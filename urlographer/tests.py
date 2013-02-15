@@ -191,7 +191,7 @@ class URLMapTest(TestCase):
         self.assertRaisesMessage(
             ValidationError, self.url.save,
             {'hexdigest': [u'Url map with this Hexdigest already exists.']})
-        
+
 
 class URLMapManagerTest(TestCase):
     def setUp(self):
