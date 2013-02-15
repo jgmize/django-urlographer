@@ -91,6 +91,12 @@ class URLMap(models.Model):
     def __unicode__(self):
         return self.protocol() + '://' + self.site.domain + self.path
 
+    def get_absolute_url(self):
+        if self.site == Site.objects.get_current():
+            return self.path
+        else:
+            return unicode(self)
+
     def cache_key(self):
         assert self.hexdigest
         return settings.URLOGRAPHER_CACHE_PREFIX + self.hexdigest

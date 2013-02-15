@@ -50,4 +50,7 @@ def route(request):
         return HttpResponsePermanentRedirect(unicode(url.redirect))
     elif url.status_code == 302:
         return HttpResponseRedirect(unicode(url.redirect))
+    elif url.status_code == 404:
+        raise Http404
+
     return HttpResponse(status=url.status_code)
