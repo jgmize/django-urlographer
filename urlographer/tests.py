@@ -30,7 +30,7 @@ from urlographer import models, utils, views
 
 class URLMapTest(TestCase):
     def setUp(self):
-        self.site = Site(domain='example.com')
+        self.site = Site.objects.get(id=1)
         self.url = models.URLMap(site=self.site, path='/test_path')
         self.hexdigest = '389661d2e64f9d426ad306abe6e8f957'
         self.cache_key = settings.URLOGRAPHER_CACHE_PREFIX + self.hexdigest
@@ -48,6 +48,14 @@ class URLMapTest(TestCase):
 
     def test_unicode(self):
         self.assertEqual(unicode(self.url), u'http://example.com/test_path')
+
+    def test_get_absolute_url(self):
+        self.assertEqual(self.url.get_absolute_url(), '/test_path')
+
+    def test_get_absolute_url_other_site(self):
+        self.url.site = Site(domain='other.com')
+        self.assertEqual(self.url.get_absolute_url(),
+                         'http://other.com/test_path')
 
     def test_https_unicode(self):
         self.url.force_secure = True
@@ -76,10 +84,10 @@ class URLMapTest(TestCase):
         self.assertEqual(self.url.id, 1)
 
     def test_save_validates(self):
-        self.url.status_code = 204
+        self.url.status_code = 200
         self.assertRaisesMessage(
             ValidationError, self.url.save,
-            {'site': [u'This field cannot be null.']})
+            {'content_map': ['Status code requires a content map']})
 
     def test_save_perm_redirect_wo_redirect_raises(self):
         self.site.save()
@@ -246,6 +254,12 @@ class RouteTest(TestCase):
         request = self.factory.get('/410')
         response = views.route(request)
         self.assertEqual(response.status_code, 410)
+
+    def test_route_set_not_found(self):
+        models.URLMap.objects.create(
+            site=self.site, status_code=404, path='/404')
+        request = self.factory.get('/404')
+        self.assertRaises(Http404, views.route, request)
 
     def test_route_redirect_canonical(self):
         content_map = models.ContentMap(
