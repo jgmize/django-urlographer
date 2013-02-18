@@ -18,7 +18,6 @@ from django.conf import settings
 from django.contrib.sites.models import Site
 from django.core.cache import cache
 from django.core.exceptions import ValidationError
-from django.core import validators
 from django.db import models
 from django_extensions.db.fields.json import JSONField
 
@@ -38,8 +37,17 @@ class ContentMap(models.Model):
     view = models.CharField(max_length=255)
     options = JSONField(blank=True)
 
+    def __unicode__(self):
+        return '%s(**%r)' % (self.view, self.options)
+
+    def clean(self):
+        try:
+            get_view(self.view)
+        except:
+            raise ValidationError({'view': 'Please enter a valid view.'})
+
     def save(self, *args, **options):
-        assert get_view(self.view)
+        self.full_clean()
         super(ContentMap, self).save(*args, **options)
 
 
