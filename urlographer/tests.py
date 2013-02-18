@@ -16,9 +16,7 @@ from django.conf import settings
 from django.contrib.sites.models import get_current_site, Site
 from django.contrib.auth.models import AnonymousUser
 from django.core.exceptions import ValidationError
-from django.db import IntegrityError
 from django.http import Http404
-from django.test import TestCase as DjangoTestCase
 from django.test.client import RequestFactory
 from django_any.contrib import any_user
 from override_settings import override_settings
@@ -26,6 +24,37 @@ from test_extensions import TestCase
 import mox
 
 from urlographer import models, utils, views
+
+
+class ContentMapTest(TestCase):
+    def test_save_existing_view(self):
+        content_map = models.ContentMap(view='urlographer.views.route')
+        self.assertEqual(content_map.clean(), None)
+
+    def test_save_nonexistent_view(self):
+        content_map = models.ContentMap(view='urlographer.views.nonexistent')
+        self.assertRaisesMessage(ValidationError, content_map.clean,
+                                 {'view': 'Please enter a valid view.'})
+
+    def test_save(self):
+        # infinite recursion FTW
+        mock = mox.Mox()
+        mock.StubOutWithMock(models.ContentMap, 'full_clean')
+        models.ContentMap.full_clean()
+
+        content_map = models.ContentMap(view='urlographer.views.route')
+        mock.ReplayAll()
+        content_map.save()
+        mock.VerifyAll()
+        mock.UnsetStubs()
+        self.assertEqual(content_map.id, 1)
+
+    def test_unicode(self):
+        content_map = models.ContentMap(
+            view='urlographer.views.route', options={'article_id': 3})
+        self.assertEqual(
+            unicode(content_map),
+            "urlographer.views.route(**{'article_id': 3})")
 
 
 class URLMapTest(TestCase):
@@ -222,18 +251,6 @@ class URLMapManagerTest(TestCase):
         self.assertEqual(urlmap, index_urlmap)
 
 
-class ContentMapTest(TestCase):
-    def test_save_nonexistent_view(self):
-        content_map = models.ContentMap(view='urlographer.views.nonexistent')
-        self.assertRaises(AttributeError, content_map.save)
-
-    def test_save(self):
-        # infinite recursion FTW
-        content_map = models.ContentMap(view='urlographer.views.route')
-        content_map.save()
-        self.assertEqual(content_map.id, 1)
-
-
 class RouteTest(TestCase):
     def setUp(self):
         self.factory = RequestFactory()
@@ -268,7 +285,7 @@ class RouteTest(TestCase):
             'template_name': 'admin/base.html'}
         content_map.save()
         models.URLMap.objects.create(site=self.site, path='/test',
-                                  content_map=content_map)
+                                     content_map=content_map)
         response = views.route(self.factory.get('/TEST'))
         self.assertEqual(response.status_code, 301)
         self.assertEqual(response._headers['location'][1],
@@ -325,7 +342,7 @@ class RouteTest(TestCase):
         views.force_cache_invalidation(request).AndReturn(True)
         models.URLMapManager.cached_get(
             site, path, force_cache_invalidation=True).AndReturn(
-            url_map)
+                url_map)
         self.mox.ReplayAll()
         response = views.route(request)
         self.assertEqual(response.status_code, 204)
