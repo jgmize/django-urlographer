@@ -21,9 +21,8 @@ from django.test.client import RequestFactory
 from django_any.contrib import any_user
 from override_settings import override_settings
 from test_extensions import TestCase
-import mox
-
 from urlographer import models, utils, views
+import mox
 
 
 class ContentMapTest(TestCase):
@@ -252,9 +251,11 @@ class URLMapManagerTest(TestCase):
 
 
 class RouteTest(TestCase):
+    urls = 'urlographer.test_urls'
+
     def setUp(self):
         self.factory = RequestFactory()
-        self.site = Site.objects.create(domain='example.com')
+        self.site = Site.objects.get()
         self.mox = mox.Mox()
 
     def tearDown(self):
@@ -310,6 +311,20 @@ class RouteTest(TestCase):
         self.assertEqual(response.status_code, 302)
         self.assertEqual(response._headers['location'][1],
                          'http://example.com/target')
+
+    def test_append_slash_redirect(self):
+        response = self.client.get('/test_page')
+        self.assertRedirects(response, '/test_page/', status_code=301,
+                             target_status_code=405)
+
+    @override_settings(APPEND_SLASH=False)
+    def test_append_slash_off_no_redirect(self):
+        response = self.client.get('/test_page')
+        self.assertEqual(response.status_code, 404)
+
+    def test_append_slash_w_slash_no_match(self):
+        response = self.client.get('/fake_page')
+        self.assertEqual(response.status_code, 404)
 
     def test_content_map_class_based_view(self):
         content_map = models.ContentMap(

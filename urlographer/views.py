@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from django.conf import settings
 from django.contrib.sites.models import get_current_site
 from django.core.urlresolvers import resolve
 from django.http import (
@@ -22,11 +23,11 @@ from .utils import canonicalize_path, force_cache_invalidation, get_view
 
 
 def route(request):
-#   the code below only works if route is mapped to .*
-#    if not request.path_info.endswith('/'):
-#        with_slash = request.path_info + '/'
-#        if resolve(with_slash)[0] != route:
-#            return HttpResponsePermanentRedirect(with_slash)
+    if settings.APPEND_SLASH and not request.path_info.endswith('/'):
+        # the code below only works if route is mapped to .*
+        with_slash = request.path_info + '/'
+        if resolve(with_slash)[0] != route:
+            return HttpResponsePermanentRedirect(with_slash)
     canonicalized = canonicalize_path(request.path)
     site = get_current_site(request)
     try:
