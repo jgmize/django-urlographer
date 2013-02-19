@@ -15,13 +15,13 @@
 from django.conf import settings
 from django.contrib.sites.models import get_current_site, Site
 from django.contrib.auth.models import AnonymousUser
-from django.core.exceptions import ValidationError
+from django.core.exceptions import ImproperlyConfigured, ValidationError
 from django.http import Http404
 from django.test.client import RequestFactory
 from django_any.contrib import any_user
 from override_settings import override_settings
 from test_extensions import TestCase
-from urlographer import models, utils, views
+from urlographer import models, test_views, utils, views
 import mox
 
 
@@ -264,7 +264,8 @@ class RouteTest(TestCase):
     def test_route_not_found(self):
         request = self.factory.get('/404')
         self.assertEqual(request.path, '/404')
-        self.assertRaises(Http404, views.route, request)
+        response = views.route(request)
+        self.assertEqual(response.status_code, 404)
 
     def test_route_gone(self):
         models.URLMap.objects.create(
@@ -277,7 +278,8 @@ class RouteTest(TestCase):
         models.URLMap.objects.create(
             site=self.site, status_code=404, path='/404')
         request = self.factory.get('/404')
-        self.assertRaises(Http404, views.route, request)
+        response = views.route(request)
+        self.assertEqual(response.status_code, 404)
 
     def test_route_redirect_canonical(self):
         content_map = models.ContentMap(
@@ -311,20 +313,6 @@ class RouteTest(TestCase):
         self.assertEqual(response.status_code, 302)
         self.assertEqual(response._headers['location'][1],
                          'http://example.com/target')
-
-    def test_append_slash_redirect(self):
-        response = self.client.get('/test_page')
-        self.assertRedirects(response, '/test_page/', status_code=301,
-                             target_status_code=405)
-
-    @override_settings(APPEND_SLASH=False)
-    def test_append_slash_off_no_redirect(self):
-        response = self.client.get('/test_page')
-        self.assertEqual(response.status_code, 404)
-
-    def test_append_slash_w_slash_no_match(self):
-        response = self.client.get('/fake_page')
-        self.assertEqual(response.status_code, 404)
 
     def test_content_map_class_based_view(self):
         content_map = models.ContentMap(
@@ -362,16 +350,57 @@ class RouteTest(TestCase):
         response = views.route(request)
         self.assertEqual(response.status_code, 204)
 
-# the test below only works if .* is mapped to route
-#    def test_route_trailing_slash_redirect(self):
-#        self.mox.StubOutWithMock(views, 'resolve')
-#        views.resolve('/admin/').AndReturn(
-#            ResolverMatch(AdminSite().index, (), {}, 'index'))
-#        self.mox.ReplayAll()
-#        response = views.route(self.factory.get('/admin'))
-#        self.mox.VerifyAll()
-#        self.assertEqual(response.status_code, 301)
-#        self.assertEqual(response._headers['location'][1], '/admin/')
+    def test_append_slash_redirect(self):
+        response = self.client.get('/test_page')
+        self.assertRedirects(response, '/test_page/', status_code=301,
+                             target_status_code=405)
+
+    @override_settings(APPEND_SLASH=False)
+    def test_append_slash_off_no_redirect(self):
+        response = self.client.get('/test_page')
+        self.assertEqual(response.status_code, 404)
+
+    def test_append_slash_w_slash_no_match(self):
+        response = self.client.get('/fake_page')
+        self.assertEqual(response.status_code, 404)
+
+    @override_settings(
+        URLOGRAPHER_HANDLERS={
+            403: 'urlographer.test_views.sample_handler'})
+    def test_handler_as_string(self):
+        models.URLMap.objects.create(
+            site=self.site, path='/page', status_code=403)
+        response = views.route(self.factory.get('/page'))
+        self.assertContains(response, 'modified content', status_code=403)
+
+    @override_settings(
+        URLOGRAPHER_HANDLERS={
+            206: test_views.sample_handler})
+    def test_handler_as_func(self):
+        models.URLMap.objects.create(
+            site=self.site, path='/page', status_code=206)
+        response = views.route(self.factory.get('/page'))
+        self.assertContains(response, 'modified content', status_code=206)
+
+    @override_settings(
+        URLOGRAPHER_HANDLERS={
+            402: test_views.SampleClassHandler})
+    def test_handler_as_class(self):
+        models.URLMap.objects.create(
+            site=self.site, path='/page', status_code=402)
+        response = views.route(self.factory.get('/page'))
+        self.assertContains(response, 'payment required', status_code=402)
+
+    @override_settings(
+        URLOGRAPHER_HANDLERS={
+            404: {'test': 'this'}})
+    def test_handler_as_dict_fails(self):
+        models.URLMap.objects.create(
+            site=self.site, path='/page', status_code=404)
+        self.assertRaisesMessage(
+            ImproperlyConfigured, views.route,
+            'URLOGRAPHER_HANDLERS values must be views or import strings',
+            self.factory.get('/page'))
 
 
 class CanonicalizePathTest(TestCase):
