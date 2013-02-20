@@ -14,12 +14,16 @@
 
 from django.conf import settings
 from django.contrib.sites.models import get_current_site
+from django.core.exceptions import ImproperlyConfigured
 from django.core.urlresolvers import resolve
 from django.http import (
-    Http404, HttpResponse, HttpResponsePermanentRedirect, HttpResponseRedirect)
+    HttpResponse, HttpResponseNotFound, HttpResponsePermanentRedirect,
+    HttpResponseRedirect)
 
 from .models import URLMap
 from .utils import canonicalize_path, force_cache_invalidation, get_view
+
+settings.URLOGRAPHER_HANDLERS = getattr(settings, 'URLOGRAPHER_HANDLERS', {})
 
 
 def route(request):
@@ -35,23 +39,41 @@ def route(request):
             site, canonicalized,
             force_cache_invalidation=force_cache_invalidation(request))
     except URLMap.DoesNotExist:
-        raise Http404
+        url = URLMap(site=site, path=canonicalized, status_code=404)
+
     if url.status_code == 200:
         if request.path != canonicalized:
-            return HttpResponsePermanentRedirect(unicode(url))
+            response = HttpResponsePermanentRedirect(unicode(url))
         else:
             view = get_view(url.content_map.view)
             options = url.content_map.options
             if hasattr(view, 'as_view'):
                 initkwargs = options.pop('initkwargs', {})
-                return view.as_view(**initkwargs)(request, **options)
+                response = view.as_view(**initkwargs)(request, **options)
             else:
-                return view(request, **options)
+                response =  view(request, **options)
     elif url.status_code == 301:
-        return HttpResponsePermanentRedirect(unicode(url.redirect))
+        response = HttpResponsePermanentRedirect(unicode(url.redirect))
     elif url.status_code == 302:
-        return HttpResponseRedirect(unicode(url.redirect))
+        response = HttpResponseRedirect(unicode(url.redirect))
     elif url.status_code == 404:
-        raise Http404
+        response = HttpResponseNotFound()
+    else:
+        response = HttpResponse(status=url.status_code)
 
-    return HttpResponse(status=url.status_code)
+    handler = settings.URLOGRAPHER_HANDLERS.get(response.status_code, None)
+    if handler:
+        if callable(handler) or hasattr(handler, 'as_view'):
+            view = handler
+        elif isinstance(handler, basestring):
+            view = get_view(handler)
+        else:
+            raise ImproperlyConfigured(
+                'URLOGRAPHER_HANDLERS values must be views or import strings')
+
+        if hasattr(view, 'as_view'):
+            response = view.as_view()(request, response)
+        else:
+            response = view(request, response)
+
+    return response
