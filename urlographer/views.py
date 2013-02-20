@@ -17,7 +17,7 @@ from django.contrib.sites.models import get_current_site
 from django.core.exceptions import ImproperlyConfigured
 from django.core.urlresolvers import resolve
 from django.http import (
-    HttpResponse, HttpResponseNotFound, HttpResponsePermanentRedirect,
+    Http404, HttpResponse, HttpResponseNotFound, HttpResponsePermanentRedirect,
     HttpResponseRedirect)
 
 from .models import URLMap
@@ -75,5 +75,7 @@ def route(request):
             response = view.as_view()(request, response)
         else:
             response = view(request, response)
+    elif response.status_code == 404:
+            raise Http404
 
     return response
