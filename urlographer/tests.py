@@ -264,8 +264,7 @@ class RouteTest(TestCase):
     def test_route_not_found(self):
         request = self.factory.get('/404')
         self.assertEqual(request.path, '/404')
-        response = views.route(request)
-        self.assertEqual(response.status_code, 404)
+        self.assertRaises(Http404, views.route, request)
 
     def test_route_gone(self):
         models.URLMap.objects.create(
@@ -278,8 +277,7 @@ class RouteTest(TestCase):
         models.URLMap.objects.create(
             site=self.site, status_code=404, path='/404')
         request = self.factory.get('/404')
-        response = views.route(request)
-        self.assertEqual(response.status_code, 404)
+        self.assertRaises(Http404, views.route, request)
 
     def test_route_redirect_canonical(self):
         content_map = models.ContentMap(
