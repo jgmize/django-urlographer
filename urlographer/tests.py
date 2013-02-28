@@ -150,6 +150,12 @@ class URLMapTest(TestCase):
             ValidationError, self.url.save,
             {'content_map': ['Status code requires a content map']})
 
+    def test_save_data_invalid_for_field_definition_raises(self):
+        self.url.path = 'x' * 2001
+        self.url.status_code = 404
+        m = 'Ensure this value has at most 2000 characters (it has 2001).'
+        self.assertRaisesMessage(ValidationError, self.url.save, {'path': [m]})
+
     def test_delete_deletes_cache(self):
         self.site.save()
         self.url.site = self.site
