@@ -314,24 +314,26 @@ class RouteTest(TestCase):
 
     def test_content_map_class_based_view(self):
         content_map = models.ContentMap(
-            view='django.views.generic.base.TemplateView')
+            view='urlographer.test_views.SampleClassView')
         content_map.options['initkwargs'] = {
-            'template_name': 'admin/base.html'}
+            'test_val': 'testing 1 2 3'}
         content_map.save()
         models.URLMap.objects.create(
             site=self.site, path='/test', content_map=content_map)
         response = views.route(self.factory.get('/test'))
         self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.content, 'test value=testing 1 2 3')
 
     def test_content_map_view_function(self):
         content_map = models.ContentMap(
-            view='django.views.generic.simple.direct_to_template')
-        content_map.options['template'] = 'admin/base.html'
+            view='urlographer.test_views.sample_view')
+        content_map.options['test_val'] = 'testing 1 2 3'
         content_map.save()
         models.URLMap.objects.create(
             site=self.site, path='/test', content_map=content_map)
         response = views.route(self.factory.get('/test'))
         self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.content, 'test value=testing 1 2 3')
 
     def test_force_cache_invalidation(self):
         path = '/test'
