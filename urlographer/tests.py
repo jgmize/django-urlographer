@@ -484,12 +484,14 @@ class SitemapTest(TestCase):
         self.mox.UnsetStubs()
 
     def test_get(self):
+        site = Site.objects.get_current()
         request = self.factory.get('/sitemap.xml') 
         self.mox.StubOutWithMock(views.URLMap.objects, 'filter')
         self.mox.StubOutWithMock(views, 'contrib_sitemap')
         self.mox.StubOutWithMock(views, 'GenericSitemap')
         views.URLMap.objects.filter(
-            status_code=200, on_sitemap=True).AndReturn('mock queryset')
+            site=site, status_code=200, on_sitemap=True).AndReturn(
+            'mock queryset')
         views.GenericSitemap({'queryset': 'mock queryset'}).AndReturn(
             'mock GenericSitemap')
         views.contrib_sitemap(request, {'urlmap': 'mock GenericSitemap'})

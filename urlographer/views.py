@@ -84,8 +84,9 @@ def route(request):
 
 
 def sitemap(request):
+    site = get_current_site(request)
     return contrib_sitemap(
         request,
         {'urlmap': GenericSitemap(
             {'queryset': URLMap.objects.filter(
-                status_code=200, on_sitemap=True)})})
+                site=site, status_code=200, on_sitemap=True)})})
