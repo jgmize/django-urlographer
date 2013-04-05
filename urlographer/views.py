@@ -13,6 +13,8 @@
 # limitations under the License.
 
 from django.conf import settings
+from django.contrib.sitemaps.views import sitemap as contrib_sitemap
+from django.contrib.sitemaps import GenericSitemap
 from django.contrib.sites.models import get_current_site
 from django.core.exceptions import ImproperlyConfigured
 from django.core.urlresolvers import resolve
@@ -51,7 +53,7 @@ def route(request):
                 initkwargs = options.pop('initkwargs', {})
                 response = view.as_view(**initkwargs)(request, **options)
             else:
-                response =  view(request, **options)
+                response = view(request, **options)
     elif url.status_code == 301:
         response = HttpResponsePermanentRedirect(unicode(url.redirect))
     elif url.status_code == 302:
@@ -79,3 +81,11 @@ def route(request):
             raise Http404
 
     return response
+
+
+def sitemap(request):
+    return contrib_sitemap(
+        request,
+        {'urlmap': GenericSitemap(
+            {'queryset': URLMap.objects.filter(
+                status_code=200, on_sitemap=True)})})

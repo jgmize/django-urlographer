@@ -473,3 +473,26 @@ class ForceCacheInvalidationTest(TestCase):
              'REMOTE_ADDR': '10.0.0.2'})
         request.user = any_user(is_superuser=True)
         self.assertTrue(utils.force_cache_invalidation(request))
+
+
+class SitemapTest(TestCase):
+    def setUp(self):
+        self.factory = RequestFactory()
+        self.mox = mox.Mox()
+
+    def tearDown(self):
+        self.mox.UnsetStubs()
+
+    def test_get(self):
+        request = self.factory.get('/sitemap.xml') 
+        self.mox.StubOutWithMock(views.URLMap.objects, 'filter')
+        self.mox.StubOutWithMock(views, 'contrib_sitemap')
+        self.mox.StubOutWithMock(views, 'GenericSitemap')
+        views.URLMap.objects.filter(
+            status_code=200, on_sitemap=True).AndReturn('mock queryset')
+        views.GenericSitemap({'queryset': 'mock queryset'}).AndReturn(
+            'mock GenericSitemap')
+        views.contrib_sitemap(request, {'urlmap': 'mock GenericSitemap'})
+        self.mox.ReplayAll()
+        views.sitemap(request)
+        self.mox.VerifyAll()

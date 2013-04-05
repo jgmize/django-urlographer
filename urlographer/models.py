@@ -88,6 +88,7 @@ class URLMap(models.Model):
     redirect = models.ForeignKey(
         'self', related_name='redirects', blank=True, null=True)
     content_map = models.ForeignKey(ContentMap, blank=True, null=True)
+    on_sitemap = models.BooleanField(default=True)
     objects = URLMapManager()
 
     def protocol(self):
