@@ -21,7 +21,7 @@ from django.test.client import RequestFactory
 from django_any.contrib import any_user
 from override_settings import override_settings
 from test_extensions import TestCase
-from urlographer import models, test_views, utils, views
+from urlographer import models, sample_views, utils, views
 import mox
 
 
@@ -257,8 +257,6 @@ class URLMapManagerTest(TestCase):
 
 
 class RouteTest(TestCase):
-    urls = 'urlographer.test_urls'
-
     def setUp(self):
         self.factory = RequestFactory()
         self.site = Site.objects.get()
@@ -320,7 +318,7 @@ class RouteTest(TestCase):
 
     def test_content_map_class_based_view(self):
         content_map = models.ContentMap(
-            view='urlographer.test_views.SampleClassView')
+            view='urlographer.sample_views.SampleClassView')
         content_map.options['initkwargs'] = {
             'test_val': 'testing 1 2 3'}
         content_map.save()
@@ -332,7 +330,7 @@ class RouteTest(TestCase):
 
     def test_content_map_view_function(self):
         content_map = models.ContentMap(
-            view='urlographer.test_views.sample_view')
+            view='urlographer.sample_views.sample_view')
         content_map.options['test_val'] = 'testing 1 2 3'
         content_map.save()
         models.URLMap.objects.create(
@@ -372,7 +370,7 @@ class RouteTest(TestCase):
 
     @override_settings(
         URLOGRAPHER_HANDLERS={
-            403: 'urlographer.test_views.sample_handler'})
+            403: 'urlographer.sample_views.sample_handler'})
     def test_handler_as_string(self):
         models.URLMap.objects.create(
             site=self.site, path='/page', status_code=403)
@@ -381,7 +379,7 @@ class RouteTest(TestCase):
 
     @override_settings(
         URLOGRAPHER_HANDLERS={
-            206: test_views.sample_handler})
+            206: sample_views.sample_handler})
     def test_handler_as_func(self):
         models.URLMap.objects.create(
             site=self.site, path='/page', status_code=206)
@@ -390,7 +388,7 @@ class RouteTest(TestCase):
 
     @override_settings(
         URLOGRAPHER_HANDLERS={
-            402: test_views.SampleClassHandler})
+            402: sample_views.SampleClassHandler})
     def test_handler_as_class(self):
         models.URLMap.objects.create(
             site=self.site, path='/page', status_code=402)
