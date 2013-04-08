@@ -34,7 +34,7 @@ import sys
 if 'jenkins' in sys.argv:
     INSTALLED_APPS += ('django_jenkins',)
     PROJECT_APPS = ('urlographer',)
-    COVERAGE_RCFILE = '.coveragerc'
+    COVERAGE_RCFILE = 'test_app/coveragerc'
     JENKINS_TASKS = (
         'django_jenkins.tasks.with_coverage',
         'django_jenkins.tasks.django_tests',
