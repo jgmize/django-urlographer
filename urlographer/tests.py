@@ -487,7 +487,9 @@ class SitemapTest(TestCase):
         self.cache_key = '%s%s_sitemap' % (
             settings.URLOGRAPHER_CACHE_PREFIX, self.site)
         self.request = self.factory.get('/sitemap.xml')
-        self.mock_sitemap = '<mock>Sitemap</mock>'
+        self.mock_contrib_sitemap_response = HttpResponse(content='<mock>Sitemap</mock>')
+        self.mock_contrib_sitemap_response.render = lambda: None
+        self.mox.StubOutWithMock(self.mock_contrib_sitemap_response, 'render')
 
     def tearDown(self):
         self.mox.UnsetStubs()
@@ -500,24 +502,28 @@ class SitemapTest(TestCase):
                 'mock queryset')
         views.GenericSitemap({'queryset': 'mock queryset'}).AndReturn(
             'mock GenericSitemap')
+        self.mock_contrib_sitemap_response.render()
         views.contrib_sitemap(
             self.request, {'urlmap': 'mock GenericSitemap'}).AndReturn(
-                HttpResponse(content=self.mock_sitemap))
+                self.mock_contrib_sitemap_response)
         views.cache.set(
-            self.cache_key, self.mock_sitemap,
+            self.cache_key, self.mock_contrib_sitemap_response.content,
             settings.URLOGRAPHER_CACHE_TIMEOUT)
         self.mox.ReplayAll()
         response = views.sitemap(self.request)
         self.mox.VerifyAll()
-        self.assertEqual(response.content, self.mock_sitemap)
+        self.assertEqual(
+            response.content, self.mock_contrib_sitemap_response.content)
 
     def test_get_cache_hit(self):
         views.force_cache_invalidation(self.request)
-        views.cache.get(self.cache_key).AndReturn(self.mock_sitemap)
+        views.cache.get(self.cache_key).AndReturn(
+            self.mock_contrib_sitemap_response.content)
         self.mox.ReplayAll()
         response = views.sitemap(self.request)
         self.mox.VerifyAll()
-        self.assertEqual(response.content, self.mock_sitemap)
+        self.assertEqual(
+            response.content, self.mock_contrib_sitemap_response.content)
 
     def test_get_force_cache_invalidation(self):
         views.force_cache_invalidation(self.request).AndReturn(True)
@@ -528,14 +534,16 @@ class SitemapTest(TestCase):
             'mock GenericSitemap')
         views.contrib_sitemap(
             self.request, {'urlmap': 'mock GenericSitemap'}).AndReturn(
-                HttpResponse(content=self.mock_sitemap))
+                self.mock_contrib_sitemap_response)
+        self.mock_contrib_sitemap_response.render()
         views.cache.set(
-            self.cache_key, self.mock_sitemap,
+            self.cache_key, self.mock_contrib_sitemap_response.content,
             settings.URLOGRAPHER_CACHE_TIMEOUT)
         self.mox.ReplayAll()
         response = views.sitemap(self.request)
         self.mox.VerifyAll()
-        self.assertEqual(response.content, self.mock_sitemap)
+        self.assertEqual(
+            response.content, self.mock_contrib_sitemap_response.content)
 
     def test_get_invalidate_cache(self):
         views.URLMap.objects.filter(
@@ -545,14 +553,16 @@ class SitemapTest(TestCase):
             'mock GenericSitemap')
         views.contrib_sitemap(
             self.request, {'urlmap': 'mock GenericSitemap'}).AndReturn(
-                HttpResponse(content=self.mock_sitemap))
+                self.mock_contrib_sitemap_response)
+        self.mock_contrib_sitemap_response.render()
         views.cache.set(
-            self.cache_key, self.mock_sitemap,
+            self.cache_key, self.mock_contrib_sitemap_response.content,
             settings.URLOGRAPHER_CACHE_TIMEOUT)
         self.mox.ReplayAll()
         response = views.sitemap(self.request, invalidate_cache=True)
         self.mox.VerifyAll()
-        self.assertEqual(response.content, self.mock_sitemap)
+        self.assertEqual(
+            response.content, self.mock_contrib_sitemap_response.content)
 
 
 class UpdateSitemapCacheTest(TestCase):

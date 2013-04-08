@@ -96,5 +96,6 @@ def sitemap(request, invalidate_cache=False):
         {'urlmap': GenericSitemap(
             {'queryset': URLMap.objects.filter(
                 site=site, status_code=200, on_sitemap=True)})})
+    response.render()
     cache.set(cache_key, response.content, settings.URLOGRAPHER_CACHE_TIMEOUT)
     return response
