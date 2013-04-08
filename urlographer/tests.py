@@ -16,12 +16,12 @@ from django.conf import settings
 from django.contrib.sites.models import get_current_site, Site
 from django.contrib.auth.models import AnonymousUser
 from django.core.exceptions import ImproperlyConfigured, ValidationError
-from django.http import Http404
+from django.http import Http404, HttpResponse, HttpRequest
 from django.test.client import RequestFactory
 from django_any.contrib import any_user
 from override_settings import override_settings
 from test_extensions import TestCase
-from urlographer import models, test_views, utils, views
+from urlographer import models, tasks, test_views, utils, views
 import mox
 
 
@@ -479,22 +479,94 @@ class SitemapTest(TestCase):
     def setUp(self):
         self.factory = RequestFactory()
         self.mox = mox.Mox()
+        self.mox.StubOutWithMock(views, 'force_cache_invalidation')
+        self.mox.StubOutWithMock(views.URLMap.objects, 'filter')
+        self.mox.StubOutWithMock(views, 'contrib_sitemap')
+        self.mox.StubOutWithMock(views, 'GenericSitemap')
+        self.mox.StubOutWithMock(views.cache, 'get')
+        self.mox.StubOutWithMock(views.cache, 'set')
+        self.site = Site.objects.get_current()
+        self.cache_key = '%s%s_sitemap' % (
+            settings.URLOGRAPHER_CACHE_PREFIX, self.site)
+        self.request = self.factory.get('/sitemap.xml')
+        self.mock_sitemap = '<mock>Sitemap</mock>'
 
     def tearDown(self):
         self.mox.UnsetStubs()
 
-    def test_get(self):
-        site = Site.objects.get_current()
-        request = self.factory.get('/sitemap.xml') 
-        self.mox.StubOutWithMock(views.URLMap.objects, 'filter')
-        self.mox.StubOutWithMock(views, 'contrib_sitemap')
-        self.mox.StubOutWithMock(views, 'GenericSitemap')
+    def test_get_cache_miss(self):
+        views.force_cache_invalidation(self.request)
+        views.cache.get(self.cache_key)
         views.URLMap.objects.filter(
-            site=site, status_code=200, on_sitemap=True).AndReturn(
-            'mock queryset')
+            site=self.site, status_code=200, on_sitemap=True).AndReturn(
+                'mock queryset')
         views.GenericSitemap({'queryset': 'mock queryset'}).AndReturn(
             'mock GenericSitemap')
-        views.contrib_sitemap(request, {'urlmap': 'mock GenericSitemap'})
+        views.contrib_sitemap(
+            self.request, {'urlmap': 'mock GenericSitemap'}).AndReturn(
+                HttpResponse(content=self.mock_sitemap))
+        views.cache.set(
+            self.cache_key, self.mock_sitemap,
+            settings.URLOGRAPHER_CACHE_TIMEOUT)
         self.mox.ReplayAll()
-        views.sitemap(request)
+        response = views.sitemap(self.request)
+        self.mox.VerifyAll()
+        self.assertEqual(response.content, self.mock_sitemap)
+
+    def test_get_cache_hit(self):
+        views.force_cache_invalidation(self.request)
+        views.cache.get(self.cache_key).AndReturn(self.mock_sitemap)
+        self.mox.ReplayAll()
+        response = views.sitemap(self.request)
+        self.mox.VerifyAll()
+        self.assertEqual(response.content, self.mock_sitemap)
+
+    def test_get_force_cache_invalidation(self):
+        views.force_cache_invalidation(self.request).AndReturn(True)
+        views.URLMap.objects.filter(
+            site=self.site, status_code=200, on_sitemap=True).AndReturn(
+                'mock queryset')
+        views.GenericSitemap({'queryset': 'mock queryset'}).AndReturn(
+            'mock GenericSitemap')
+        views.contrib_sitemap(
+            self.request, {'urlmap': 'mock GenericSitemap'}).AndReturn(
+                HttpResponse(content=self.mock_sitemap))
+        views.cache.set(
+            self.cache_key, self.mock_sitemap,
+            settings.URLOGRAPHER_CACHE_TIMEOUT)
+        self.mox.ReplayAll()
+        response = views.sitemap(self.request)
+        self.mox.VerifyAll()
+        self.assertEqual(response.content, self.mock_sitemap)
+
+    def test_get_invalidate_cache(self):
+        views.URLMap.objects.filter(
+            site=self.site, status_code=200, on_sitemap=True).AndReturn(
+                'mock queryset')
+        views.GenericSitemap({'queryset': 'mock queryset'}).AndReturn(
+            'mock GenericSitemap')
+        views.contrib_sitemap(
+            self.request, {'urlmap': 'mock GenericSitemap'}).AndReturn(
+                HttpResponse(content=self.mock_sitemap))
+        views.cache.set(
+            self.cache_key, self.mock_sitemap,
+            settings.URLOGRAPHER_CACHE_TIMEOUT)
+        self.mox.ReplayAll()
+        response = views.sitemap(self.request, invalidate_cache=True)
+        self.mox.VerifyAll()
+        self.assertEqual(response.content, self.mock_sitemap)
+
+
+class UpdateSitemapCacheTest(TestCase):
+    def setUp(self):
+        self.mox = mox.Mox()
+
+    def tearDown(self):
+        self.mox.UnsetStubs()
+
+    def test_update_sitemap_cache(self):
+        self.mox.StubOutWithMock(tasks, 'sitemap')
+        tasks.sitemap(mox.IsA(HttpRequest), invalidate_cache=True)
+        self.mox.ReplayAll()
+        tasks.update_sitemap_cache()
         self.mox.VerifyAll()
