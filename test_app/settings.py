@@ -29,3 +29,15 @@ INSTALLED_APPS = (
 
 TEST_RUNNER = 'django_nose.NoseTestSuiteRunner'
 NOSE_ARGS = ('--nocapture', )
+
+import sys
+if 'jenkins' in sys.argv:
+    INSTALLED_APPS += ('django_jenkins',)
+    PROJECT_APPS = ('urlographer',)
+    COVERAGE_RCFILE = '.coveragerc'
+    JENKINS_TASKS = (
+        'django_jenkins.tasks.with_coverage',
+        'django_jenkins.tasks.django_tests',
+        'django_jenkins.tasks.run_pep8',
+        'django_jenkins.tasks.run_pyflakes',
+    )

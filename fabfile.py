@@ -30,6 +30,11 @@ def test():
     _local('django-admin.py test')
 
 
+def jenkins_test():
+    """Run the test suite with Django Jenkins, cover, pep8 and pyflakes."""
+    _local('django-admin.py jenkins')
+
+
 def serve():
     """Start the Django dev server."""
     _local('django-admin.py runserver')
