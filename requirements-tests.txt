@@ -2,7 +2,7 @@ fabric
 mox>=0.5.3
 django-override-settings>=1.2
 git+git://github.com/ConsumerAffairs/django-whatever.git@master#egg=django-whatever
-git+git://github.com/ConsumerAffairs/django-test-extensions.git
+git+git://github.com/ConsumerAffairs/django-test-extensions.git@0.2#egg=django-test-extensions
 nose
 django-nose
 south

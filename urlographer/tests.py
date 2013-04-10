@@ -32,8 +32,8 @@ class ContentMapTest(TestCase):
 
     def test_save_nonexistent_view(self):
         content_map = models.ContentMap(view='urlographer.views.nonexistent')
-        self.assertRaisesMessage(ValidationError, content_map.clean,
-                                 {'view': 'Please enter a valid view.'})
+        self.assertRaisesMessage(
+            ValidationError, 'Please enter a valid view.', content_map.clean)
 
     def test_save(self):
         # infinite recursion FTW
@@ -114,24 +114,22 @@ class URLMapTest(TestCase):
     def test_save_validates(self):
         self.url.status_code = 200
         self.assertRaisesMessage(
-            ValidationError, self.url.save,
-            {'content_map': ['Status code requires a content map']})
+            ValidationError, 'Status code requires a content map',
+            self.url.save)
 
     def test_save_perm_redirect_wo_redirect_raises(self):
         self.site.save()
         self.url.site = self.site
         self.url.status_code = 301
         self.assertRaisesMessage(
-            ValidationError, self.url.save,
-            {'redirect': ['Status code requires a redirect']})
+            ValidationError, 'Status code requires a redirect', self.url.save)
 
     def test_save_temp_redirect_wo_redirect_raises(self):
         self.site.save()
         self.url.site = self.site
         self.url.status_code = 302
         self.assertRaisesMessage(
-            ValidationError, self.url.save,
-            {'redirect': ['Status code requires a redirect']})
+            ValidationError, 'Status code requires a redirect', self.url.save)
 
     def test_save_redirect_to_self_raises(self):
         self.site.save()
@@ -139,22 +137,22 @@ class URLMapTest(TestCase):
         self.url.status_code = 301
         self.url.redirect = self.url
         self.assertRaisesMessage(
-            ValidationError, self.url.save,
-            {'redirect': ['You cannot redirect a url to itself']})
+            ValidationError, 'You cannot redirect a url to itself',
+            self.url.save)
 
     def test_save_200_wo_content_map_raises(self):
         self.site.save()
         self.url.site = self.site
         self.url.status_code = 200
         self.assertRaisesMessage(
-            ValidationError, self.url.save,
-            {'content_map': ['Status code requires a content map']})
+            ValidationError, 'Status code requires a content map',
+            self.url.save)
 
     def test_save_data_invalid_for_field_definition_raises(self):
         self.url.path = 'x' * 2001
         self.url.status_code = 404
         m = 'Ensure this value has at most 2000 characters (it has 2001).'
-        self.assertRaisesMessage(ValidationError, self.url.save, {'path': [m]})
+        self.assertRaisesMessage(ValidationError, m, self.url.save)
 
     def test_delete_deletes_cache(self):
         self.site.save()
@@ -175,8 +173,9 @@ class URLMapTest(TestCase):
         self.url.save()
         self.url.id = None
         self.assertRaisesMessage(
-            ValidationError, self.url.save,
-            {'hexdigest': [u'Url map with this Hexdigest already exists.']})
+            ValidationError,
+            u'Url map with this Hexdigest already exists.',
+            self.url.save)
 
 
 class URLMapManagerTest(TestCase):
@@ -402,9 +401,9 @@ class RouteTest(TestCase):
         models.URLMap.objects.create(
             site=self.site, path='/page', status_code=404)
         self.assertRaisesMessage(
-            ImproperlyConfigured, views.route,
+            ImproperlyConfigured,
             'URLOGRAPHER_HANDLERS values must be views or import strings',
-            self.factory.get('/page'))
+            views.route, self.factory.get('/page'))
 
 
 class CanonicalizePathTest(TestCase):
