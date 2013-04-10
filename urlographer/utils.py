@@ -59,7 +59,7 @@ get_callable = memoize(get_view, _view_cache, 1)
 
 def force_cache_invalidation(request):
     '''
-    Returns true if a request from INTERNAL_IPS or a superuser contains the 
+    Returns true if a request from INTERNAL_IPS or a superuser contains the
     Cache-Control:no-cache header
     '''
     no_cache = ('no-cache' in request.META.get('HTTP_CACHE_CONTROL', ''))

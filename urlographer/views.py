@@ -16,6 +16,7 @@ from django.conf import settings
 from django.contrib.sitemaps.views import sitemap as contrib_sitemap
 from django.contrib.sitemaps import GenericSitemap
 from django.contrib.sites.models import get_current_site
+from django.core.cache import cache
 from django.core.exceptions import ImproperlyConfigured
 from django.core.urlresolvers import resolve
 from django.http import (
@@ -83,10 +84,18 @@ def route(request):
     return response
 
 
-def sitemap(request):
+def sitemap(request, invalidate_cache=False):
     site = get_current_site(request)
-    return contrib_sitemap(
+    cache_key = '%s%s_sitemap' % (settings.URLOGRAPHER_CACHE_PREFIX, site)
+    if not invalidate_cache and not force_cache_invalidation(request):
+        cached = cache.get(cache_key)
+        if cached:
+            return HttpResponse(content=cached)
+    response = contrib_sitemap(
         request,
         {'urlmap': GenericSitemap(
             {'queryset': URLMap.objects.filter(
                 site=site, status_code=200, on_sitemap=True)})})
+    response.render()
+    cache.set(cache_key, response.content, settings.URLOGRAPHER_CACHE_TIMEOUT)
+    return response
