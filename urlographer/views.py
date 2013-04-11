@@ -44,6 +44,8 @@ def route(request):
     except URLMap.DoesNotExist:
         url = URLMap(site=site, path=canonicalized, status_code=404)
 
+    request.urlmap = url
+
     if url.status_code == 200:
         if request.path != canonicalized:
             response = HttpResponsePermanentRedirect(unicode(url))

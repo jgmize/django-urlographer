@@ -332,11 +332,13 @@ class RouteTest(TestCase):
             view='urlographer.sample_views.sample_view')
         content_map.options['test_val'] = 'testing 1 2 3'
         content_map.save()
-        models.URLMap.objects.create(
+        urlmap = models.URLMap.objects.create(
             site=self.site, path='/test', content_map=content_map)
-        response = views.route(self.factory.get('/test'))
+        request = self.factory.get('/test')
+        response = views.route(request)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.content, 'test value=testing 1 2 3')
+        self.assertEqual(request.urlmap, urlmap)
 
     def test_force_cache_invalidation(self):
         path = '/test'
