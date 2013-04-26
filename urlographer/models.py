@@ -74,6 +74,10 @@ class URLMapManager(models.Manager):
                     force_cache_invalidation=force_cache_invalidation)
         else:
             url = self.get(hexdigest=url.hexdigest)
+        # accessing foreignkeys caches instances with the object
+        url.site
+        url.content_map
+        url.redirect
         cache.set(cache_key, url, timeout=settings.URLOGRAPHER_CACHE_TIMEOUT)
         return url
 
