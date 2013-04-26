@@ -59,15 +59,8 @@ get_callable = memoize(get_view, _view_cache, 1)
 
 def force_cache_invalidation(request):
     '''
-    Returns true if a request from INTERNAL_IPS or a superuser contains the
-    Cache-Control:no-cache header
+    Returns true if a request from contains the Cache-Control:no-cache header
     '''
     no_cache = ('no-cache' in request.META.get('HTTP_CACHE_CONTROL', ''))
     if no_cache:
-        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR', None)
-        if x_forwarded_for:
-            remote_addr = x_forwarded_for.split(',')[0].strip()
-        else:
-            remote_addr = request.META.get('REMOTE_ADDR', None)
-        return request.user.is_superuser or (
-            remote_addr in settings.INTERNAL_IPS and not request.is_ajax())
+        return  not request.is_ajax()

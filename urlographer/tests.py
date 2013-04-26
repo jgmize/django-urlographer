@@ -436,43 +436,6 @@ class ForceCacheInvalidationTest(TestCase):
     def test_header_not_set(self):
         self.assertFalse(utils.force_cache_invalidation(self.factory.get('/')))
 
-    @override_settings(INTERNAL_IPS=['10.0.0.1'])
-    def test_remote_anonymous(self):
-        request = self.factory.get('/')
-        request.META.update(
-            {'HTTP_CACHE_CONTROL': 'no-cache',
-             'REMOTE_ADDR': '10.0.0.2'})
-        request.user = AnonymousUser()
-        self.assertFalse(utils.force_cache_invalidation(request))
-
-    @override_settings(INTERNAL_IPS=['10.0.0.1'])
-    def test_internal_ip(self):
-        request = self.factory.get('/')
-        request.META.update(
-            {'HTTP_CACHE_CONTROL': 'no-cache',
-             'REMOTE_ADDR': '10.0.0.1'})
-        request.user = AnonymousUser()
-        self.assertTrue(utils.force_cache_invalidation(request))
-
-    @override_settings(INTERNAL_IPS=['10.0.0.1'])
-    def test_internal_ip_forwarded(self):
-        request = self.factory.get('/')
-        request.META.update(
-            {'HTTP_CACHE_CONTROL': 'no-cache',
-             'HTTP_X_FORWARDED_FOR': '10.0.0.1',
-             'REMOTE_ADDR': '10.0.0.2'})
-        request.user = AnonymousUser()
-        self.assertTrue(utils.force_cache_invalidation(request))
-
-    @override_settings(INTERNAL_IPS=['10.0.0.1'])
-    def test_superuser_external_ip(self):
-        request = self.factory.get('/')
-        request.META.update(
-            {'HTTP_CACHE_CONTROL': 'no-cache',
-             'REMOTE_ADDR': '10.0.0.2'})
-        request.user = any_user(is_superuser=True)
-        self.assertTrue(utils.force_cache_invalidation(request))
-
 
 class SitemapTest(TestCase):
     def setUp(self):
