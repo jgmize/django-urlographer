@@ -143,5 +143,9 @@ class URLMap(models.Model):
     def save(self, *args, **options):
         self.full_clean()
         super(URLMap, self).save(*args, **options)
+        # accessing foreignkeys caches instances with the object
+        self.site
+        self.content_map
+        self.redirect
         cache.set(self.cache_key(), self,
                   timeout=settings.URLOGRAPHER_CACHE_TIMEOUT)
