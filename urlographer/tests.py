@@ -14,11 +14,9 @@
 
 from django.conf import settings
 from django.contrib.sites.models import get_current_site, Site
-from django.contrib.auth.models import AnonymousUser
 from django.core.exceptions import ImproperlyConfigured, ValidationError
 from django.http import Http404, HttpResponse, HttpRequest
 from django.test.client import RequestFactory
-from django_any.contrib import any_user
 from override_settings import override_settings
 from test_extensions import TestCase
 from urlographer import models, tasks, sample_views, utils, views

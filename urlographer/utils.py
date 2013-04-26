@@ -13,7 +13,6 @@
 # limitations under the License.
 
 from django.core.urlresolvers import get_mod_func
-from django.conf import settings
 from django.utils.importlib import import_module
 from django.utils.functional import memoize
 
@@ -63,4 +62,4 @@ def force_cache_invalidation(request):
     '''
     no_cache = ('no-cache' in request.META.get('HTTP_CACHE_CONTROL', ''))
     if no_cache:
-        return  not request.is_ajax()
+        return not request.is_ajax()
