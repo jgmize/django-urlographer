@@ -488,7 +488,8 @@ class SitemapTest(TestCase):
         self.cache_key = '%s%s_sitemap' % (
             settings.URLOGRAPHER_CACHE_PREFIX, self.site)
         self.request = self.factory.get('/sitemap.xml')
-        self.mock_contrib_sitemap_response = HttpResponse(content='<mock>Sitemap</mock>')
+        self.mock_contrib_sitemap_response = HttpResponse(
+            content='<mock>Sitemap</mock>')
         self.mock_contrib_sitemap_response.render = lambda: None
         self.mox.StubOutWithMock(self.mock_contrib_sitemap_response, 'render')
 
