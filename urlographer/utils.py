@@ -60,6 +60,4 @@ def force_cache_invalidation(request):
     '''
     Returns true if a request from contains the Cache-Control:no-cache header
     '''
-    no_cache = ('no-cache' in request.META.get('HTTP_CACHE_CONTROL', ''))
-    if no_cache:
-        return not request.is_ajax()
+    return 'no-cache' in request.META.get('HTTP_CACHE_CONTROL', '')

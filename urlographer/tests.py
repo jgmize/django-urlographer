@@ -434,6 +434,11 @@ class ForceCacheInvalidationTest(TestCase):
     def test_header_not_set(self):
         self.assertFalse(utils.force_cache_invalidation(self.factory.get('/')))
 
+    def test_header_set(self):
+        request = self.factory.get('/')
+        request.META.update({'HTTP_CACHE_CONTROL': 'no-cache'})
+        self.assertTrue(utils.force_cache_invalidation(request))
+
 
 class SitemapTest(TestCase):
     def setUp(self):
