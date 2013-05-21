@@ -34,12 +34,20 @@ class ContentMapTest(TestCase):
             ValidationError, 'Please enter a valid view.', content_map.clean)
 
     def test_save(self):
+        content_map = models.ContentMap.objects.create(
+            view='urlographer.views.route')
+        urlmap = models.URLMap.objects.create(
+            site=Site.objects.get(id=1), path='/test_path',
+            content_map=content_map)
         # infinite recursion FTW
         mock = mox.Mox()
         mock.StubOutWithMock(models.ContentMap, 'full_clean')
+        mock.StubOutWithMock(models.URLMap, 'cache_key')
+        mock.StubOutWithMock(models.cache, 'set')
         models.ContentMap.full_clean()
+        models.URLMap.cache_key().AndReturn('urlmap_key')
+        models.cache.set('urlmap_key', None, 5)
 
-        content_map = models.ContentMap(view='urlographer.views.route')
         mock.ReplayAll()
         content_map.save()
         mock.VerifyAll()
