@@ -36,7 +36,7 @@ class ContentMapTest(TestCase):
     def test_save(self):
         content_map = models.ContentMap.objects.create(
             view='urlographer.views.route')
-        urlmap = models.URLMap.objects.create(
+        models.URLMap.objects.create(
             site=Site.objects.get(id=1), path='/test_path',
             content_map=content_map)
         # infinite recursion FTW
