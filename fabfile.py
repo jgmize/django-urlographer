@@ -55,3 +55,7 @@ def migrate():
     _local('django-admin.py migrate')
 
 
+def pypi_upload():
+    """build and upload to PyPi"""
+    _local('python setup.py sdist bdist_egg upload')
+
