@@ -69,6 +69,7 @@ class URLMapTest(TestCase):
         self.hexdigest = '389661d2e64f9d426ad306abe6e8f957'
         self.cache_key = settings.URLOGRAPHER_CACHE_PREFIX + self.hexdigest
         self.mox = mox.Mox()
+        self.mox.StubOutWithMock(models.URLMapManager, 'cached_get')
 
     def tearDown(self):
         self.mox.UnsetStubs()
@@ -182,6 +183,17 @@ class URLMapTest(TestCase):
             ValidationError,
             u'Url map with this Hexdigest already exists.',
             self.url.save)
+
+    @override_settings(URLOGRAPHER_INDEX_ALIASES=['index.html'])
+    def test_save_index_refreshes_slash_cache(self):
+        urlmap = models.URLMap(
+            site=self.site, path='/test/index.html', status_code=204)
+        models.URLMapManager.cached_get(
+            self.site, '/test/', force_cache_invalidation=True)
+        self.mox.ReplayAll()
+        urlmap.save()
+        self.mox.VerifyAll()
+
 
 
 class URLMapManagerTest(TestCase):

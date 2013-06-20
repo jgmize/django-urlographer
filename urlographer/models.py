@@ -155,3 +155,7 @@ class URLMap(models.Model):
         self.redirect
         cache.set(self.cache_key(), self,
                   timeout=settings.URLOGRAPHER_CACHE_TIMEOUT)
+        if self.path.endswith(settings.URLOGRAPHER_INDEX_ALIAS):
+            self._default_manager.cached_get(
+                self.site, self.path[:-len(settings.URLOGRAPHER_INDEX_ALIAS)],
+                force_cache_invalidation=True)
