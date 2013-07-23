@@ -21,6 +21,9 @@ _view_cache = {}
 
 
 def force_ascii(s):
+    """
+    Eliminate all non-ASCII characters, ignoring errors
+    """
     if isinstance(s, unicode):
         return s.encode('ascii', 'ignore')
     else:
@@ -28,6 +31,13 @@ def force_ascii(s):
 
 
 def canonicalize_path(path):
+    """
+    #. Eliminate extra slashes
+    #. Eliminate ./
+    #. Make ../ behave as expected by eliminating parent dirs from path
+       (but without unintentionally exposing files, of course)
+    #. Elminate all unicode chars using :func:`force_ascii`
+    """
     while '//' in path:
         path = path.replace('//', '/')
     if path.startswith('./'):
@@ -47,17 +57,21 @@ def canonicalize_path(path):
 
 
 def get_view(lookup_view):
+    """
+    Uses similar logic to django.urlresolvers.get_callable, but always raises
+    on failures and supports class based views.
+    """
     lookup_view = lookup_view.encode('ascii')
     mod_name, func_or_class_name = get_mod_func(lookup_view)
     assert func_or_class_name != ''
     view = getattr(import_module(mod_name), func_or_class_name)
     assert callable(view) or hasattr(view, 'as_view')
     return view
-get_callable = memoize(get_view, _view_cache, 1)
+get_view = memoize(get_view, _view_cache, 1)
 
 
 def force_cache_invalidation(request):
     '''
-    Returns true if a request from contains the Cache-Control:no-cache header
+    Returns true if a request from contains the Cache-Control: no-cache header
     '''
     return 'no-cache' in request.META.get('HTTP_CACHE_CONTROL', '')

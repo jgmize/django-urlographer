@@ -30,6 +30,28 @@ settings.URLOGRAPHER_HANDLERS = getattr(settings, 'URLOGRAPHER_HANDLERS', {})
 
 
 def route(request):
+    """
+    This view is intended to be mapped to '.*' in your root urlconf.
+    It does the following:
+
+    #. Redirect to URL ending in / when appropriate 
+    #. Redirect to canonical path based on return value of
+       :func:`urlographer.utils.canonicalize_path`
+    #. Use :meth:`~urlographer.models.URLMapManager.cached_get` to retrieve
+       a :class:`~urlographer.models.URLMap` that exactly matches the site and
+       path, if it exists
+    #. If there is a matching :class:`~urlographer.models.URLMap` with a
+       *status_code* of 200, create the response using the *view* and *options*
+       specified in its :class:`~urlographer.models.ContentMap`
+    #. Use django.http.HttpResponseRedirect for temporary redirects
+    #. Use django.http.HttpResponsePermanentRedirect for permanent redirects
+    #. Use HttpResponseNotFound for 404s
+    #. Otherwise, construct the django.http.HttpResponse with a status matching
+       the :class:`~urlographer.models.URLMap`'s *status_code*
+    #. Finally, process the response through any handlers matching the
+       response.status configured in
+       :attr:`~urlographer.views.settings.URLOGRAPHER_HANDLERS`.
+    """
     if settings.APPEND_SLASH and not request.path_info.endswith('/'):
         # the code below only works if route is mapped to .*
         with_slash = request.path_info + '/'
@@ -87,6 +109,20 @@ def route(request):
 
 
 def sitemap(request, invalidate_cache=False):
+    """
+    Constructs a `GenericSitemap <https://docs.djangoproject.com/en/dev/ref/\
+    contrib/sitemaps/#django.contrib.sitemaps.GenericSitemap>`_ containing all
+    :class:`~urlographer.models.URLMap`\ s with a *status_code* of 200 for the
+    current site.
+
+    Caches based on the site and the 
+    :attr:`~urlographer.models.settings.URLOGRAPHER_CACHE_PREFIX` with a
+    timeout based on
+    :attr:`~urlographer.models.settings.URLOGRAPHER_CACHE_TIMEOUT`.
+    Cache invalidation can be triggered by the invalidate_cache keyword arg or
+    the Cache-Control: no-cache header.
+    """
+
     site = get_current_site(request)
     cache_key = '%s%s_sitemap' % (settings.URLOGRAPHER_CACHE_PREFIX, site)
     if not invalidate_cache and not force_cache_invalidation(request):
