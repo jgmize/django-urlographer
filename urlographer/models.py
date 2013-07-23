@@ -24,16 +24,28 @@ from django_extensions.db.fields.json import JSONField
 from .utils import get_view
 
 # for django memcache backend, 0 means use the default_timeout, but for
-# django-redis-cache backend, 0 means no expiration
+# django-redis-cache backend, 0 means no expiration (*NOT* recommended)
 settings.URLOGRAPHER_CACHE_TIMEOUT = getattr(
     settings, 'URLOGRAPHER_CACHE_TIMEOUT', 0)
 settings.URLOGRAPHER_CACHE_PREFIX = getattr(
     settings, 'URLOGRAPHER_CACHE_PREFIX', 'urlographer:')
 settings.URLOGRAPHER_INDEX_ALIAS = getattr(
-    settings, 'URLOGRAPHER_INDEX_ALIAS', 'index.html')
+    settings, 'URLOGRAPHER_INDEX_ALIAS', 'index.html')  # do NOT include /
 
 
 class ContentMap(models.Model):
+    """
+    A ContentMap is used by an :class:`~urlographer.models.URLMap` to refer
+    to an arbitrary view.
+
+    The "view" CharField stores the uses the same dot
+    notation to refer to a view as the `standard Django URL dispatch
+    <https://docs.djangoproject.com/en/dev/topics/http/urls/#example>`_.
+
+    The "options" JSONField will be deserialized and passed into the view
+    as keyword arguments.
+    """
+
     view = models.CharField(max_length=255)
     options = JSONField(blank=True)
 
@@ -41,13 +53,22 @@ class ContentMap(models.Model):
         return '%s(**%r)' % (self.view, self.options)
 
     def clean(self):
+        """
+        Ensures that we have a valid view according to
+        :func:`~urlographer.utils.get_view`.
+        """
         try:
             get_view(self.view)
         except:
             raise ValidationError({'view': 'Please enter a valid view.'})
 
     def save(self, *args, **options):
-        self.full_clean()
+        """
+        Runs a full_clean prior to saving to DB to ensure we never save
+        an invalid view.
+        After saving to DB, refresh the cache on each
+        :class:`~urlographer.models.URLMap` that refers to this instance.
+        """
         super(ContentMap, self).save(*args, **options)
         for urlmap in self.urlmap_set.all():
             cache.set(urlmap.cache_key(), None, 5)
@@ -55,11 +76,11 @@ class ContentMap(models.Model):
 
 class URLMapManager(models.Manager):
     def cached_get(self, site, path, force_cache_invalidation=False):
-        '''
-        Use the site and path to construct a temporary URL instance.
-        Use that to get the cache key and hexdigest for cache and db queries.
-        Set cache if cache miss. Raise NotFoundError if url not in cache or db.
-        '''
+        """
+        Uses the site and path to construct a temporary URL instance, and then
+        gets the cache key and hexdigest for cache and db queries.
+        Sets cache if cache miss. Raises NotFoundError if url not in cache or db.
+        """
         url = self.model(site=site, path=path)
         url.set_hexdigest()
         cache_key = url.cache_key()
@@ -85,6 +106,22 @@ class URLMapManager(models.Manager):
 
 
 class URLMap(models.Model):
+    """
+    This model is used to map a URL to one of the following:
+
+    #. A view, using the *content_map* relation to
+       :class:`~urlographer.models.ContentMap` together with a *status_code*
+       of 200_
+    #. A permanent or temporary redirect, using the *redirect* relation
+       to another **URLMap** and a *status_code* of 301_ or 302_, respectively
+    #. An arbitrary status code, for example to explicitly mark a resource as
+       no longer available by setting the status_code field to 410_
+
+    .. _200: http://www.w3.org/Protocols/rfc2616/rfc2616-sec10.html#sec10.2.1
+    .. _301: http://www.w3.org/Protocols/rfc2616/rfc2616-sec10.html#sec10.3.2
+    .. _302: http://www.w3.org/Protocols/rfc2616/rfc2616-sec10.html#sec10.3.3
+    .. _410: http://www.w3.org/Protocols/rfc2616/rfc2616-sec10.html#sec10.4.11
+    """
     site = models.ForeignKey(Site)
     path = models.CharField(max_length=2000)
     force_secure = models.BooleanField(default=False)
@@ -98,6 +135,7 @@ class URLMap(models.Model):
     objects = URLMapManager()
 
     def protocol(self):
+        """returns http or https, based on *force_secure* field"""
         if self.force_secure:
             return 'https'
         else:
@@ -107,23 +145,40 @@ class URLMap(models.Model):
         return self.protocol() + '://' + self.site.domain + self.path
 
     def get_absolute_url(self):
+        """
+        Returns the *path* field if on current site, or the full URL if on
+        a different site
+        """
         if self.site == Site.objects.get_current():
             return self.path
         else:
             return unicode(self)
 
     def cache_key(self):
+        """
+        Must be called after the *hexdigest* has been set or an
+        AssertionError will be raised
+        """
         assert self.hexdigest
         return settings.URLOGRAPHER_CACHE_PREFIX + self.hexdigest
 
     def set_hexdigest(self):
+        """MD5 hash the site and path and save to the *hexdigest* field"""
         self.hexdigest = md5(self.site.domain + self.path).hexdigest()
 
     def delete(self, *args, **options):
+        """delete from DB and cache"""
         super(URLMap, self).delete(*args, **options)
         cache.delete(self.cache_key())
 
     def clean_fields(self, *args, **kwargs):
+        """
+        In addition to the standard validations, we also ensure:
+
+        #. No redirect loops
+        #. No 301 or 302 *status_code* with a null *redirect*
+        #. No 200 *status_code* with a null *content_map*
+        """
         try:
             super(URLMap, self).clean_fields(*args, **kwargs)
         except ValidationError, e:
@@ -147,9 +202,19 @@ class URLMap(models.Model):
         self.set_hexdigest()
 
     def save(self, *args, **options):
+        """
+        Run a full_clean before saving to the DB, then cache self including the
+        *site*, *content_map*, and *redirect*, with a timeout of
+        :attr:`~urlographer.models.settings.URLOGRAPHER_CACHE_TIMEOUT`. If the
+        path ends with
+        :attr:`~urlographer.models.settings.URLOGRAPHER_INDEX_ALIAS`, also
+        refresh the cache for the corresponding path with the index alias
+        removed.
+        """
         self.full_clean()
         super(URLMap, self).save(*args, **options)
-        # accessing foreignkeys caches instances with the object
+        # accessing foreignkeys before caching allows us to cache instances of
+        # the models being referred to together with the object we're caching
         self.site
         self.content_map
         self.redirect
