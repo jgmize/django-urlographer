@@ -5,3 +5,4 @@ git+git://github.com/ConsumerAffairs/django-test-extensions.git@0.2#egg=django-c
 nose
 django-nose
 south
+ipdbplugin

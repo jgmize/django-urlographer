@@ -30,9 +30,12 @@ def test():
     _local('django-admin.py test')
 
 
-def jenkins_test():
-    """Run the test suite with Django Jenkins, cover, pep8 and pyflakes."""
-    _local('django-admin.py jenkins')
+def ipdb_test():
+    """
+    Run the test suite with ipdbplugin enabled for errors and failures,
+    stopping after first error or failure.
+    """
+    _local('django-admin.py test --ipdb --ipdb-failures -sx')
 
 
 def serve():
