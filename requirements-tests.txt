@@ -6,3 +6,4 @@ nose
 django-nose
 south
 ipdbplugin
+django-jenkins==0.14.0
