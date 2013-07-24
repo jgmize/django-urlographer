@@ -81,7 +81,8 @@ class URLMapManager(models.Manager):
         """
         Uses the site and path to construct a temporary URL instance, and then
         gets the cache key and hexdigest for cache and db queries.
-        Sets cache if cache miss. Raises NotFoundError if url not in cache or db.
+        Sets cache if cache miss. Raises NotFoundError if url not in cache or
+        db.
         """
         url = self.model(site=site, path=path)
         url.set_hexdigest()

@@ -34,7 +34,7 @@ def route(request):
     This view is intended to be mapped to '.*' in your root urlconf.
     It does the following:
 
-    #. Redirect to URL ending in / when appropriate 
+    #. Redirect to URL ending in / when appropriate
     #. Redirect to canonical path based on return value of
        :func:`urlographer.utils.canonicalize_path`
     #. Use :meth:`~urlographer.models.URLMapManager.cached_get` to retrieve
@@ -115,7 +115,7 @@ def sitemap(request, invalidate_cache=False):
     :class:`~urlographer.models.URLMap`\ s with a *status_code* of 200 for the
     current site.
 
-    Caches based on the site and the 
+    Caches based on the site and the
     :attr:`~urlographer.models.settings.URLOGRAPHER_CACHE_PREFIX` with a
     timeout based on
     :attr:`~urlographer.models.settings.URLOGRAPHER_CACHE_TIMEOUT`.
