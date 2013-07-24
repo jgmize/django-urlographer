@@ -195,7 +195,6 @@ class URLMapTest(TestCase):
         self.mox.VerifyAll()
 
 
-
 class URLMapManagerTest(TestCase):
     def setUp(self):
         self.site = Site(domain='example.com')
