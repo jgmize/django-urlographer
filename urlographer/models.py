@@ -69,6 +69,8 @@ class ContentMap(models.Model):
         After saving to DB, refresh the cache on each
         :class:`~urlographer.models.URLMap` that refers to this instance.
         """
+
+        self.full_clean()
         super(ContentMap, self).save(*args, **options)
         for urlmap in self.urlmap_set.all():
             cache.set(urlmap.cache_key(), None, 5)
